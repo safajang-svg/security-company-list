@@ -158,13 +158,15 @@ def clean(text):
 
 # 결과에서 제외할 카테고리/업체명 패턴 (열쇠업체, 경찰관서 등 노이즈 제거용)
 EXCLUDE_NAME_KEYWORDS = [
-    "경찰서", "지구대", "파출소", "해양경찰", "경찰청", "치안센터",
+    "경찰서", "경찰청", "경찰교육원", "지구대", "파출소", "해양경찰", "치안센터",
+    "정보보안과", "생활안전과", "여성청소년과",
     "열쇠", "도어락", "잠금장치", "차키",
+    "탐정", "흥신소",
+    "CCTV", "씨씨티비",
 ]
-EXCLUDE_CATEGORY_KEYWORDS = ["열쇠", "자물쇠", "관공서", "행정기관"]
-# 카테고리에 이 중 하나라도 포함되면 '진짜 경비업체'로 우선 신뢰
-INCLUDE_CATEGORY_KEYWORDS = ["경비", "보안"]
-
+EXCLUDE_CATEGORY_KEYWORDS = [
+    "열쇠", "자물쇠", "관공서", "행정기관", "경찰서", "탐정", "씨씨티비", "CCTV",
+]
 
 def is_valid_security_company(name, category):
     if any(kw in name for kw in EXCLUDE_NAME_KEYWORDS):
