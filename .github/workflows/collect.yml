@@ -1,0 +1,42 @@
+ame: 경비업체 목록 자동 수집
+
+# 실행 시점 설정
+on:
+  # 매주 월요일 00:00(UTC) = 한국시간 오전 9시에 자동 실행
+  schedule:
+    - cron: "0 0 * * 1"
+  # 저장소의 Actions 탭에서 수동으로도 실행 가능
+  workflow_dispatch:
+
+# 결과 파일을 저장소에 커밋(push)하기 위한 권한
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 필요한 라이브러리 설치
+        run: pip install requests beautifulsoup4 openpyxl
+
+      - name: 수집 스크립트 실행
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python 경비업체_수집기.py
+
+      - name: 결과 파일 자동 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/*.xlsx
+          git diff --quiet --cached || git commit -m "chore: 경비업체 목록 자동 업데이트 ($(date +'%Y-%m-%d'))"
+          git push
