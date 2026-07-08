@@ -156,6 +156,27 @@ def clean(text):
     return TAG_STRIP.sub("", text or "").strip()
 
 
+# 결과에서 제외할 카테고리/업체명 패턴 (열쇠업체, 경찰관서 등 노이즈 제거용)
+EXCLUDE_NAME_KEYWORDS = [
+    "경찰서", "지구대", "파출소", "해양경찰", "경찰청", "치안센터",
+    "열쇠", "도어락", "잠금장치", "차키",
+]
+EXCLUDE_CATEGORY_KEYWORDS = ["열쇠", "자물쇠", "관공서", "행정기관"]
+# 카테고리에 이 중 하나라도 포함되면 '진짜 경비업체'로 우선 신뢰
+INCLUDE_CATEGORY_KEYWORDS = ["경비", "보안"]
+
+
+def is_valid_security_company(name, category):
+    if any(kw in name for kw in EXCLUDE_NAME_KEYWORDS):
+        return False
+    if category:
+        if any(kw in category for kw in EXCLUDE_CATEGORY_KEYWORDS):
+            return False
+        if not any(kw in category for kw in INCLUDE_CATEGORY_KEYWORDS):
+            return False
+    return True
+
+
 def collect_all():
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         print("[오류] NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 설정되지 않았습니다.")
@@ -164,6 +185,7 @@ def collect_all():
         return []
 
     rows = []
+    excluded_count = 0
     total_queries = sum(len(v) for v in TARGET_REGIONS.values()) * len(SEARCH_KEYWORDS)
     done = 0
     for city, districts in TARGET_REGIONS.items():
@@ -175,11 +197,15 @@ def collect_all():
                 print(f"[검색 {done}/{total_queries}] {query} -> {len(items)}건")
                 for item in items:
                     name = clean(item.get("title", ""))
+                    category = item.get("category", "")
                     address = item.get("roadAddress") or item.get("address", "")
                     phone = item.get("telephone", "")
                     link = item.get("link", "")
                     homepage = link if link and "naver.com" not in link else ""
                     if not name:
+                        continue
+                    if not is_valid_security_company(name, category):
+                        excluded_count += 1
                         continue
                     rows.append({
                         "업체명": name,
@@ -189,7 +215,7 @@ def collect_all():
                         "이메일": "",
                     })
                 time.sleep(REQUEST_DELAY)
-    print(f"[정보] 네이버 검색으로 총 {len(rows)}건(중복 포함) 수집")
+    print(f"[정보] 네이버 검색으로 총 {len(rows)}건(중복 포함) 수집, {excluded_count}건 제외됨")
     return rows
 
 
