@@ -156,7 +156,7 @@ def clean(text):
     return TAG_STRIP.sub("", text or "").strip()
 
 
-# 결과에서 제외할 카테고리/업체명 패턴 (열쇠업체, 경찰관서 등 노이즈 제거용)
+# 결과에서 제외할 카테고리/업체명 패턴 (열쇠업체, 경찰관서, CCTV설치업체 등 노이즈 제거용)
 EXCLUDE_NAME_KEYWORDS = [
     "경찰서", "경찰청", "경찰교육원", "지구대", "파출소", "해양경찰", "치안센터",
     "정보보안과", "생활안전과", "여성청소년과",
@@ -167,9 +167,13 @@ EXCLUDE_NAME_KEYWORDS = [
 EXCLUDE_CATEGORY_KEYWORDS = [
     "열쇠", "자물쇠", "관공서", "행정기관", "경찰서", "탐정", "씨씨티비", "CCTV",
 ]
+# 카테고리에 이 중 하나라도 포함되면 '진짜 경비업체'로 우선 신뢰
+INCLUDE_CATEGORY_KEYWORDS = ["경비", "보안"]
+
 
 def is_valid_security_company(name, category):
-    if any(kw in name for kw in EXCLUDE_NAME_KEYWORDS):
+    name_upper = name.upper()
+    if any(kw.upper() in name_upper for kw in EXCLUDE_NAME_KEYWORDS):
         return False
     if category:
         if any(kw in category for kw in EXCLUDE_CATEGORY_KEYWORDS):
@@ -279,11 +283,19 @@ def load_existing(path):
         wb = load_workbook(path)
         ws = wb.active
         headers = [c.value for c in ws[1]]
+        removed = 0
         for row in ws.iter_rows(min_row=2, values_only=True):
             d = dict(zip(headers, row))
-            key = (str(d.get("업체명", "")).replace(" ", ""),
-                   str(d.get("전화번호", "")).replace("-", ""))
+            name = str(d.get("업체명", ""))
+            # 예전 실행에서 필터링 없이 저장된 노이즈(열쇠업체, 경찰관서 등)를
+            # 매 실행마다 이름 기준으로 재검사해 자동으로 제거한다.
+            if not is_valid_security_company(name, ""):
+                removed += 1
+                continue
+            key = (name.replace(" ", ""), str(d.get("전화번호", "")).replace("-", ""))
             existing[key] = d
+        if removed:
+            print(f"[정보] 기존 파일에서 필터 기준에 어긋나는 {removed}건을 자동 정리했습니다.")
     return existing
 
 
